@@ -1,0 +1,21 @@
+﻿# Java / Spring Boot
+target/
+*.class
+*.iml
+/.idea/
+/.vscode/
+*.log
+
+# Node / React (for when you add frontend/)
+node_modules/
+dist/
+build/
+*.log
+
+# OS / misc
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
