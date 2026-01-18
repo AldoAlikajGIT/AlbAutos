@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.math.BigDecimal;
 import java.security.Principal;
 import java.util.List;
@@ -29,18 +30,22 @@ public class CarAdController {
     @Autowired
     private RateLimitingService rateLimitingService;
 
-
-    // ✅ Create a new car advertisement
+    // ✅ Create a new car advertisement (SECURE: uses Principal)
     @PostMapping
-    public ResponseEntity<CarAdDTO> createAd(@RequestBody CarAdDTO carAdDTO, @RequestParam String email, HttpServletRequest request) {
-
+    public ResponseEntity<CarAdDTO> createAd(
+            @RequestBody CarAdDTO carAdDTO,
+            Principal principal,
+            HttpServletRequest request
+    ) {
         String clientKey = "createAd:" + request.getRemoteAddr();
-        Bucket bucket = rateLimitingService.resolveBucket(clientKey, 5, 60); // test: 2 per minute
+        Bucket bucket = rateLimitingService.resolveBucket(clientKey, 5, 60);
 
         System.out.println("Tokens BEFORE consume for " + clientKey + ": " + bucket.getAvailableTokens());
         if (!bucket.tryConsume(1)) {
             return ResponseEntity.status(429).build();
         }
+
+        String email = principal.getName(); // ✅ from JWT
 
         System.out.println("🚗 Creating car ad from email: " + email);
         System.out.println("📦 Brand (from DTO): " + carAdDTO.getBrand());
@@ -68,7 +73,6 @@ public class CarAdController {
         return ResponseEntity.ok(carAdMapper.toDTO(carAd));
     }
 
-
     @PatchMapping("/update-price/{id}")
     public ResponseEntity<CarAdDTO> updateAdPrice(
             @PathVariable Long id,
@@ -86,7 +90,6 @@ public class CarAdController {
 
         String email = principal.getName();
 
-        // ✅ Validate presence of "price"
         if (!updates.containsKey("price")) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -94,15 +97,11 @@ public class CarAdController {
         try {
             BigDecimal newPrice = new BigDecimal(updates.get("price").toString());
 
-            // ✅ Validate price ≥ 1
             if (newPrice.compareTo(BigDecimal.ONE) < 0) {
                 return ResponseEntity.badRequest().body(null);
             }
 
-            // ✅ Delegate to service
             CarAd updatedAd = carAdService.updatePriceOnly(id, newPrice, email);
-
-            // ✅ Convert to DTO and return
             return ResponseEntity.ok(carAdMapper.toDTO(updatedAd));
 
         } catch (NumberFormatException e) {
@@ -110,9 +109,13 @@ public class CarAdController {
         }
     }
 
-    // 🗑️ Delete car ad
+    // 🗑️ Delete car ad (SECURE: uses Principal)
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<Void> deleteAd(@PathVariable Long id, @RequestParam String email) {
+    public ResponseEntity<Void> deleteAd(
+            @PathVariable Long id,
+            Principal principal
+    ) {
+        String email = principal.getName();
         carAdService.deleteAd(id, email);
         return ResponseEntity.noContent().build();
     }
@@ -144,9 +147,7 @@ public class CarAdController {
             @RequestParam(required = false) CarAdSort sort,
             @RequestParam(value = "options", required = false) List<String> options,
             HttpServletRequest request
-    )
-
-    {
+    ) {
         String clientKey = "search:" + request.getRemoteAddr();
         Bucket bucket = rateLimitingService.resolveBucket(clientKey, 500, 3600);
 
@@ -155,21 +156,12 @@ public class CarAdController {
             return ResponseEntity.status(429).build();
         }
 
-        System.out.println("brand = " + brand);
-        System.out.println("model = " + model);
-        System.out.println("fuel = " + fuel);
-        System.out.println("transmission = " + transmission);
-        System.out.println("body = " + body);
-        System.out.println("location = " + location);
-        System.out.println("exteriorColor = " + exteriorColor);
-        System.out.println("interiorColor = " + interiorColor);
-        System.out.println("upholstery = " + upholstery);
-
         List<CarAdDTO> results = carAdService.searchCars(
                         brand, model, minPrice, maxPrice, minYear, maxYear,
                         minMileage, maxMileage, minPowerHP, maxPowerHP,
                         minPowerKW, maxPowerKW, doorCount, seatCount,
-                        exteriorColor, interiorColor, upholstery, location, fuel, transmission, body, options, sort
+                        exteriorColor, interiorColor, upholstery, location,
+                        fuel, transmission, body, options, sort
                 ).stream()
                 .map(carAdMapper::toDTO)
                 .toList();

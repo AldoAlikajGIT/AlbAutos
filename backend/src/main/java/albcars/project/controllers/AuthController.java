@@ -2,6 +2,7 @@ package albcars.project.controllers;
 
 import albcars.project.entities.CarDealership;
 import albcars.project.entities.User;
+import albcars.project.securityConfig.CryptoService;
 import albcars.project.securityConfig.RateLimitingService;
 import albcars.project.repositories.CarDealershipPasswordResetTokenRepository;
 import albcars.project.repositories.CarDealershipRepository;
@@ -9,6 +10,7 @@ import albcars.project.repositories.PasswordResetTokenRepository;
 import albcars.project.repositories.UserRepository;
 import albcars.project.securityConfig.JwtUtil;
 import albcars.project.services.CarDealershipPasswordResetService;
+import albcars.project.services.CarDealershipService;
 import albcars.project.services.PasswordResetService;
 import albcars.project.services.UserService;
 import io.github.bucket4j.Bucket;
@@ -30,16 +32,10 @@ public class AuthController {
     private PasswordResetService passwordResetService;
 
     @Autowired
-    private PasswordResetTokenRepository passwordResetTokenRepository;
+    private CarDealershipService carDealershipService;
 
     @Autowired
     private CarDealershipPasswordResetService carDealershipPasswordResetService;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private CarDealershipPasswordResetTokenRepository dealershipTokenRepository;
 
     @Autowired
     private CarDealershipRepository dealershipRepository;
@@ -61,84 +57,69 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody User user, HttpServletRequest request) {
-        String clientKey = "register:" + request.getRemoteAddr();
-        Bucket bucket = rateLimitingService.resolveBucket(clientKey, 20, 86400); // 20 per day
-        System.out.println("Tokens BEFORE consume for " + clientKey + ": " + bucket.getAvailableTokens());
+        System.out.println("api/auth/register hit");
 
-        if (!bucket.tryConsume(1)) {
-            return ResponseEntity.status(429).body("Too many registration attempts. Try again later.");
-        }
+        try {
+            userService.registerUser(user);
+            return ResponseEntity.ok("User registered successfully");
 
-        // normalize email (optional but safe)
-        String email = user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase();
-        user.setEmail(email);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", "VALIDATION_ERROR",
+                    "message", e.getMessage()
+            ));
 
-        if (userService.userExists(email)) {
-            // was: 400 "Email already registered"
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            e.printStackTrace(); // TEMP: show real DB constraint failure
             return ResponseEntity.status(409).body(Map.of(
-                    "code", "EMAIL_ALREADY_IN_USE",
-                    "message", "Email already registered"
+                    "code", "DUPLICATE",
+                    "message", "Email or phone already registered"
+            ));
+
+        } catch (Exception e) {
+            e.printStackTrace(); // TEMP: show real reason for the 500
+            return ResponseEntity.status(500).body(Map.of(
+                    "code", "SERVER_ERROR",
+                    "message", e.getMessage()
             ));
         }
-
-        // ✅ phone duplicate check (uses UserRepository you already autowired)
-        String phone = user.getPhoneNumber();
-        if (phone != null && userRepository.existsByPhoneNumber(phone)) {
-            return ResponseEntity.status(409).body(Map.of(
-                    "code", "PHONE_ALREADY_IN_USE",
-                    "message", "Phone number already registered"
-            ));
-        }
-
-
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        userService.saveUser(user);
-        return ResponseEntity.ok("User registered successfully");
     }
 
 
     @PostMapping("/dealerships/register")
     public ResponseEntity<?> registerCarDealership(@RequestBody CarDealership dealership, HttpServletRequest request) {
         String clientKey = "registerDealership:" + request.getRemoteAddr();
-        Bucket bucket = rateLimitingService.resolveBucket(clientKey, 20, 86400); // 20 per day
-        System.out.println("Tokens BEFORE consume for " + clientKey + ": " + bucket.getAvailableTokens());
+        Bucket bucket = rateLimitingService.resolveBucket(clientKey, 20, 86400);
 
         if (!bucket.tryConsume(1)) {
             return ResponseEntity.status(429).body("Too many registration attempts. Try again later.");
         }
 
-        // normalize email (optional but safe)
+        // normalize email early
         String email = dealership.getEmail() == null ? "" : dealership.getEmail().trim().toLowerCase();
         dealership.setEmail(email);
 
         if (dealershipRepository.findByEmail(email).isPresent()) {
-            // was: 400 "Email already registered"
             return ResponseEntity.status(409).body(Map.of(
                     "code", "EMAIL_ALREADY_IN_USE",
                     "message", "Email already registered"
             ));
         }
 
-        if (dealershipRepository.findByEmail(email).isPresent()) {
+        try {
+            carDealershipService.registerDealership(dealership); // all crypto inside service
+            return ResponseEntity.ok("Car dealership registered successfully");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", "VALIDATION_ERROR",
+                    "message", e.getMessage()
+            ));
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
             return ResponseEntity.status(409).body(Map.of(
-                    "code", "EMAIL_ALREADY_IN_USE",
-                    "message", "Email already registered"
+                    "code", "DUPLICATE",
+                    "message", "Email or phone already registered"
             ));
         }
-
-        // ✅ phone duplicate check (now that DB has UNIQUE on phone_number)
-        String phone = dealership.getPhoneNumber();
-        if (phone != null && dealershipRepository.existsByPhoneNumber(phone)) {
-            return ResponseEntity.status(409).body(Map.of(
-                    "code", "PHONE_ALREADY_IN_USE",
-                    "message", "Phone number already registered"
-            ));
-        }
-
-        dealership.setPassword(passwordEncoder.encode(dealership.getPassword()));
-        dealership.setRole("carDealership");
-        dealershipRepository.save(dealership);
-        return ResponseEntity.ok("Car dealership registered successfully");
     }
 
     @PostMapping("/login")

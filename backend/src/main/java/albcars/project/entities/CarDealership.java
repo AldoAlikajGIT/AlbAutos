@@ -7,20 +7,20 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "carDealership")
+@Table(name = "cardealership")
 public class CarDealership {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "phone_number", nullable = false, unique = true)
+    @Column(name = "phone_number")
     private String phoneNumber;
 
-    @Column(name = "vatNumber", nullable = false, length = 255)
+    @Column(name = "vatNumber", nullable = false, length = 512)
     private String vatNumber;
 
-    @Column(name = "businessName", nullable = false)
+    @Column(name = "businessName", nullable = false, length = 512)
     private String businessName;
 
     @Column(name = "password", nullable = false)
@@ -31,4 +31,8 @@ public class CarDealership {
 
     @Column(name = "role", nullable = false)
     private String role = "carDealership";
+
+    @Column(name = "phone_number_hash", unique = true)
+    private String phoneNumberHash;
+
 }

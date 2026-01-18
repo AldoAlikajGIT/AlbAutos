@@ -1,6 +1,7 @@
 package albcars.project.DTO;
 
 import albcars.project.entities.CarAd;
+import albcars.project.securityConfig.CryptoService;
 import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
@@ -8,10 +9,15 @@ import java.util.stream.Collectors;
 @Component
 public class CarAdMapper {
 
+    private final CryptoService cryptoService;
+
+    public CarAdMapper(CryptoService cryptoService) {
+        this.cryptoService = cryptoService;
+    }
+
     public CarAdDTO toDTO(CarAd ad) {
         CarAdDTO dto = new CarAdDTO();
 
-        // 🧱 Basic field mapping
         dto.setId(ad.getId());
         dto.setYear(ad.getYear());
         dto.setMileageKm(ad.getMileageKm());
@@ -31,61 +37,49 @@ public class CarAdMapper {
         dto.setCreatedAt(ad.getCreatedAt());
         dto.setDescription(ad.getDescription());
 
-        // ✅ Brand & model (get names directly from entity)
         dto.setBrand(ad.getBrand() != null ? ad.getBrand().getBrandName() : "Unknown");
         dto.setModel(ad.getModel() != null ? ad.getModel().getModelName() : "Unknown");
 
-        // 🖼️ Image URLs
         if (ad.getImages() != null) {
             dto.setImageUrls(ad.getImages().stream()
-                    .map(image -> image.getImageUrl())
+                    .map(i -> i.getImageUrl())
                     .collect(Collectors.toList()));
         }
 
-        // ⚙️ Extra options
         if (ad.getOptions() != null) {
             dto.setOptions(ad.getOptions().stream()
-                    .map(option -> option.getName())
+                    .map(o -> o.getName())
                     .collect(Collectors.toList()));
         }
 
-        // ☎️ Phone number from User or Dealership
+        // Seller contact info (decrypt stored encrypted fields)
         if (ad.getUser() != null) {
-            dto.setPhoneNumber(ad.getUser().getPhoneNumber());
-        } else if (ad.getCarDealership() != null) {
-            dto.setPhoneNumber(ad.getCarDealership().getPhoneNumber());
-        } else {
-            dto.setPhoneNumber("N/A");
-        }
-
-        // ☎️ Phone number & Email from User or Dealership
-        if (ad.getUser() != null) {
-            dto.setPhoneNumber(ad.getUser().getPhoneNumber());
-            dto.setEmail(ad.getUser().getEmail()); // ✅ Add this
-        } else if (ad.getCarDealership() != null) {
-            dto.setPhoneNumber(ad.getCarDealership().getPhoneNumber());
-            dto.setEmail(ad.getCarDealership().getEmail()); // ✅ Add this
-        } else {
-            dto.setPhoneNumber("N/A");
-            dto.setEmail("N/A"); // ✅ Fallback
-        }
-
-        if (ad.getUser() != null) {
-            dto.setPhoneNumber(ad.getUser().getPhoneNumber());
+            dto.setSellerRole("USER");
             dto.setEmail(ad.getUser().getEmail());
-            dto.setSellerRole("USER"); // ✅
-            dto.setDealershipName(null); // Optional, for clarity
+            dto.setPhoneNumber(safeDecrypt(ad.getUser().getPhoneNumber()));
+            dto.setDealershipName(null);
         } else if (ad.getCarDealership() != null) {
-            dto.setPhoneNumber(ad.getCarDealership().getPhoneNumber());
+            dto.setSellerRole("CARDEALERSHIP");
             dto.setEmail(ad.getCarDealership().getEmail());
-            dto.setSellerRole("CARDEALERSHIP"); // ✅
-            dto.setDealershipName(ad.getCarDealership().getBusinessName()); // ✅ Add this line
+            dto.setPhoneNumber(safeDecrypt(ad.getCarDealership().getPhoneNumber()));
+            dto.setDealershipName(safeDecrypt(ad.getCarDealership().getBusinessName()));
         } else {
-            dto.setPhoneNumber("N/A");
+            dto.setSellerRole("UNKNOWN");
             dto.setEmail("N/A");
-            dto.setSellerRole("UNKNOWN"); // Optional fallback
-            dto.setDealershipName(null); // fallback
+            dto.setPhoneNumber("N/A");
+            dto.setDealershipName(null);
         }
+
         return dto;
+    }
+
+    private String safeDecrypt(String value) {
+        if (value == null || value.isBlank()) return value;
+        try {
+            return cryptoService.decrypt(value);
+        } catch (Exception e) {
+            // legacy plaintext fallback
+            return value;
+        }
     }
 }

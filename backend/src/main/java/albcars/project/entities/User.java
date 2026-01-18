@@ -1,6 +1,7 @@
 package albcars.project.entities;
 
 import jakarta.persistence.*;
+import lombok.Setter;
 
 @Entity
 @Table(name = "user") // ✅ must match DB table name exactly
@@ -19,8 +20,19 @@ public class User {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(name = "phone_number", nullable = false, unique = true)
+    @Column(name = "phone_number", nullable = false, length = 512)
     private String phoneNumber;
+
+    @Column(name = "phone_number_hash", unique = true, length = 128)
+    private String phoneNumberHash;
+
+    public String getPhoneNumberHash() {
+        return phoneNumberHash;
+    }
+
+    public void setPhoneNumberHash(String phoneNumberHash) {
+        this.phoneNumberHash = phoneNumberHash;
+    }
 
     @Enumerated(EnumType.STRING)
     private Role role = Role.USER;

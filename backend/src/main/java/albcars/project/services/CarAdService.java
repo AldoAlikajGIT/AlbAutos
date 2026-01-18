@@ -16,6 +16,9 @@ import java.util.Optional;
 public class CarAdService {
 
     @Autowired
+    private albcars.project.DTO.CarAdMapper carAdMapper;
+
+    @Autowired
     private CarBrandRepository carBrandRepository;
 
     @Autowired
@@ -187,5 +190,22 @@ public class CarAdService {
             throw new SecurityException("You can only delete your own ads.");
         }
 
+    }
+
+    public List<CarAdDTO> getCarAdsByUserEmailAsDTO(String email) {
+        String normalized = email == null ? "" : email.trim().toLowerCase();
+        Optional<User> userOpt = userRepository.findByEmail(normalized);
+        if (userOpt.isEmpty()) return List.of();
+
+        return carAdRepository.findByUserId(userOpt.get().getId())
+                .stream()
+                .map(carAdMapper::toDTO)
+                .toList();
+    }
+
+    public void adminDeleteAdById(Long adId) {
+        CarAd ad = carAdRepository.findById(adId)
+                .orElseThrow(() -> new IllegalArgumentException("Car Ad not found"));
+        carAdRepository.delete(ad);
     }
 }

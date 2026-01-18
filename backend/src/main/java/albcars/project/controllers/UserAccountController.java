@@ -31,6 +31,9 @@ public class UserAccountController {
     private JwtUtil jwtUtil;
 
     @Autowired
+    private albcars.project.securityConfig.CryptoService cryptoService;
+
+    @Autowired
     private CarDealershipRepository carDealershipRepository;
 
 
@@ -65,7 +68,7 @@ public class UserAccountController {
 
             UserInfoDTO userInfo = new UserInfoDTO();
             userInfo.setEmail(user.getEmail());
-            userInfo.setPhoneNumber(user.getPhoneNumber());
+            userInfo.setPhoneNumber(cryptoService.decrypt(user.getPhoneNumber()));
             userInfo.setRole(user.getRole().name());
             userInfo.setCarAds(carAds);
 
@@ -84,7 +87,7 @@ public class UserAccountController {
 
             UserInfoDTO dealerInfo = new UserInfoDTO();
             dealerInfo.setEmail(dealer.getEmail());
-            dealerInfo.setPhoneNumber(dealer.getPhoneNumber());
+            dealerInfo.setPhoneNumber(cryptoService.decrypt(dealer.getPhoneNumber()));
             dealerInfo.setRole("CARDEALERSHIP");
             dealerInfo.setCarAds(carAds);
 
