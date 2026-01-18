@@ -68,12 +68,15 @@ export default function EditContact() {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center pt-24 px-4">
       {/* 🔙 Go Back Button */}
-      <button
-        onClick={() => navigate("/myaccount")}
-        className="absolute top-4 left-4 bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded"
-      >
-        {translations[lang].goBack}
-      </button>
+      <div className="absolute top-4 left-4">
+  <button
+    onClick={() => navigate(-1)}
+    className="inline-flex items-center gap-2 text-gray-700 bg-white border border-gray-200 rounded-full px-4 py-2 shadow-sm hover:shadow-md hover:bg-gray-50 transition"
+  >
+    <span className="font-medium">{translations[lang].goBack}</span>
+  </button>
+</div>
+
       <div className="max-w-md w-full bg-white p-6 rounded shadow">
         <h2 className="text-xl font-bold mb-4 text-center">{translations[lang].editContact}</h2>
         {error && <div className="text-red-600 mb-2">{error}</div>}

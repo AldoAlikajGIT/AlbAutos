@@ -66,6 +66,17 @@ export default function EditCarPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 pt-24 px-4">
+
+      <div className="absolute top-4 left-4">
+  <button
+    onClick={() => navigate(-1)}
+    className="inline-flex items-center gap-2 text-gray-700 bg-white border border-gray-200 rounded-full px-4 py-2 shadow-sm hover:shadow-md hover:bg-gray-50 transition"
+  >
+    <span className="font-medium">{translations[lang].goBack}</span>
+  </button>
+</div>
+
+
       <div className="max-w-2xl mx-auto bg-white p-6 rounded shadow-md">
         <h1 className="text-2xl font-bold mb-4">{translations[lang].editCar}(ID: {id})</h1>
 
